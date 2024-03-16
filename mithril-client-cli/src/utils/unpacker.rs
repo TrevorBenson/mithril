@@ -11,6 +11,7 @@ use mithril_client::{common::CompressionAlgorithm, MithrilError, MithrilResult};
 #[derive(Default)]
 pub struct CardanoDbUnpacker;
 
+/// Comment to test noop change against ci
 /// Errors tied with the CardanoDbUnpacker.
 #[derive(Debug, Error)]
 pub enum CardanoDbUnpackerError {
