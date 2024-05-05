@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[5990],{78845:e=>{e.exports=JSON.parse('{"label":"mithril signer","permalink":"/doc/dev-blog/tags/mithril-signer","allTagsPath":"/doc/dev-blog/tags","count":5,"unlisted":false}')}}]);

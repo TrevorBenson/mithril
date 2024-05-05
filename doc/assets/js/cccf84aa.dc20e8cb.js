@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[8316],{96132:e=>{e.exports=JSON.parse('{"label":"Superseded","permalink":"/doc/adr/tags/superseded","allTagsPath":"/doc/adr/tags","count":1,"unlisted":false}')}}]);

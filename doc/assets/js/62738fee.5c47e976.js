@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[8413],{62614:e=>{e.exports=JSON.parse('{"label":"deprecated","permalink":"/doc/dev-blog/tags/deprecated","allTagsPath":"/doc/dev-blog/tags","count":1,"unlisted":false}')}}]);

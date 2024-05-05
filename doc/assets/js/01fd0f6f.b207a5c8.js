@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[9962],{76201:e=>{e.exports=JSON.parse('{"label":"re-spin","permalink":"/doc/dev-blog/tags/re-spin","allTagsPath":"/doc/dev-blog/tags","count":1,"unlisted":false}')}}]);

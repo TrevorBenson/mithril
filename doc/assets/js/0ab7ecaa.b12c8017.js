@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[4921],{79724:e=>{e.exports=JSON.parse('{"label":"breaking-change","permalink":"/doc/dev-blog/tags/breaking-change","allTagsPath":"/doc/dev-blog/tags","count":3,"unlisted":false}')}}]);

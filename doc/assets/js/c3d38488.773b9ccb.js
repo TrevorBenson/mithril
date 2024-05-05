@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[250],{65037:e=>{e.exports=JSON.parse('{"label":"sanchonet","permalink":"/doc/dev-blog/tags/sanchonet","allTagsPath":"/doc/dev-blog/tags","count":1,"unlisted":false}')}}]);

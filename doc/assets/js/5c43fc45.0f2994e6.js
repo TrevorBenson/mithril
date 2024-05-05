@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[8108],{37989:e=>{e.exports=JSON.parse('{"label":"era markers","permalink":"/doc/dev-blog/tags/era-markers","allTagsPath":"/doc/dev-blog/tags","count":1,"unlisted":false}')}}]);

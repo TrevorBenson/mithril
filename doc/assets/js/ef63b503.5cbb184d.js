@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[2835],{16656:e=>{e.exports=JSON.parse('{"label":"Prometheus","permalink":"/doc/dev-blog/tags/prometheus","allTagsPath":"/doc/dev-blog/tags","count":1,"unlisted":false}')}}]);

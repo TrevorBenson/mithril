@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[6808],{92535:l=>{l.exports=JSON.parse('{"label":"cli","permalink":"/doc/dev-blog/tags/cli","allTagsPath":"/doc/dev-blog/tags","count":2,"unlisted":false}')}}]);

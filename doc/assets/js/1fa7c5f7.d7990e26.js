@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[255],{16287:e=>{e.exports=JSON.parse('{"label":"era switch","permalink":"/doc/dev-blog/tags/era-switch","allTagsPath":"/doc/dev-blog/tags","count":1,"unlisted":false}')}}]);
