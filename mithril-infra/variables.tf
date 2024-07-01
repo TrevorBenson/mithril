@@ -153,7 +153,7 @@ variable "cardano_image_registry" {
 variable "cardano_configurations_repository_commit" {
   type        = string
   description = "The Cardano configurations commit to use"
-  default     = "d55cc5cd71f95807601800f4d6b148eefffbfe10"
+  default     = "692010ed0f454bfbb566c06443227c79e2f4dbab"
 }
 
 variable "mithril_api_domain" {
@@ -223,6 +223,18 @@ variable "mithril_aggregator_snapshot_use_cdn_domain" {
   type        = bool
   description = "Use CDN domain for constructing snapshot url"
   default     = false
+}
+
+variable "mithril_aggregator_cardano_transactions_prover_cache_pool_size" {
+  type        = number
+  description = "Cardano transactions prover cache pool size"
+  default     = 10
+}
+
+variable "mithril_aggregator_cardano_transactions_database_connection_pool_size" {
+  type        = number
+  description = "Cardano transactions database connection pool size"
+  default     = 10
 }
 
 variable "mithril_aggregator_cdn_cname" {

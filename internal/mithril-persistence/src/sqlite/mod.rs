@@ -4,19 +4,25 @@
 //! structs.
 mod condition;
 mod connection_builder;
+mod connection_extensions;
+mod connection_pool;
 mod cursor;
 mod entity;
 mod projection;
-mod provider;
+mod query;
 mod source_alias;
+mod transaction;
 
 pub use condition::{GetAllCondition, WhereCondition};
 pub use connection_builder::{ConnectionBuilder, ConnectionOptions};
+pub use connection_extensions::ConnectionExtensions;
+pub use connection_pool::{SqliteConnectionPool, SqlitePooledConnection};
 pub use cursor::EntityCursor;
 pub use entity::{HydrationError, SqLiteEntity};
 pub use projection::{Projection, ProjectionField};
-pub use provider::{GetAllProvider, Provider};
+pub use query::Query;
 pub use source_alias::SourceAlias;
+pub use transaction::Transaction;
 
 use mithril_common::StdResult;
 use sqlite::ConnectionThreadSafe;
@@ -26,7 +32,7 @@ pub type SqliteConnection = ConnectionThreadSafe;
 
 /// Do a [vacuum](https://www.sqlite.org/lang_vacuum.html) on the given connection, this will
 /// reconstruct the database file, repacking it into a minimal amount of disk space.
-pub async fn vacuum_database(connection: &SqliteConnection) -> StdResult<()> {
+pub fn vacuum_database(connection: &SqliteConnection) -> StdResult<()> {
     connection.execute("vacuum")?;
 
     Ok(())
@@ -41,9 +47,7 @@ mod test {
     async fn calling_vacuum_on_an_empty_in_memory_db_should_not_fail() {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
 
-        vacuum_database(&connection)
-            .await
-            .expect("Vacuum should not fail");
+        vacuum_database(&connection).expect("Vacuum should not fail");
     }
 
     #[test]

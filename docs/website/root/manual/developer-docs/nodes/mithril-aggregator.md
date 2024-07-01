@@ -37,6 +37,8 @@ Mithril aggregator is responsible for collecting individual signatures from the 
 
 * Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
 
+* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+
 * Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
 ## Download the source file
@@ -446,6 +448,13 @@ Here is a list of the available parameters:
 | `snapshot_compression_algorithm` | `--snapshot-compression-algorithm` | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Compression algorithm of the snapshot archive | `zstandard` | `gzip` or `zstandard` | - |
 | `zstandard_parameters` | - | - | `ZSTANDARD_PARAMETERS__LEVEL` and `ZSTANDARD_PARAMETERS__NUMBER_OF_WORKERS` | Zstandard specific parameters | - | `{ level: 9, number_of_workers: 4 }` | - |
 | `allow_unparsable_block` | `--allow-unparsable-block` | - | `ALLOW_UNPARSABLE_BLOCK` | If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks. | `false` | - | - |
+| `cardano_transactions_signing_config` | - | - | `CARDANO_TRANSACTIONS_SIGNING_CONFIG__SECURITY_PARAMETER` and `CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP` | Cardano transactions signing configuration | - | `{ security_parameter: 3000, step: 120 }` | - |
+| `cardano_transactions_prover_cache_pool_size` | `--cardano-transactions-prover-cache-pool-size` | - | `CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE` | Cardano transactions prover cache pool size | `10` | `10` | - |
+| `cardano_transactions_database_connection_pool_size` | `--cardano-transactions-database-connection-pool-size` | - | `CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE` | Cardano transactions database connection pool size | `10` | `10` | - |
+| `cardano_transactions_prover_max_hashes_allowed_by_request` | `--cardano-transactions-prover-max-hashes-allowed-by-request` | - | `CARDANO_TRANSACTIONS_PROVER_MAX_HASHES_ALLOWED_BY_REQUEST` | Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions | `100` | `100` | - |
+| `cardano_transactions_block_streamer_max_roll_forwards_per_poll` | `--cardano-transactions-block-streamer-max-roll-forwards-per-poll` | - | `CARDANO_TRANSACTIONS_BLOCK_STREAMER_MAX_ROLL_FORWARDS_PER_POLL` | Maximum number of roll forwards during a poll of the block streamer when importing transactions | `1000` | `1000` | - |
+| `cardano_transactions_signing_config` | `--cardano-transactions-signing-config` | - | `CARDANO_TRANSACTIONS_SIGNING_CONFIG` | Cardano transactions signing configuration | `{ "security_parameter": 3000, "step": 120 }` | `{ "security_parameter": 3000, "step": 120 }` | - | 
+
 
 `genesis bootstrap` command:
 

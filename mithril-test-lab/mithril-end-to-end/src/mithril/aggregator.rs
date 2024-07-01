@@ -85,6 +85,13 @@ impl Aggregator {
                 aggregator_config.cardano_node_version,
             ),
             ("CHAIN_OBSERVER_TYPE", aggregator_config.chain_observer_type),
+            ("CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE", "5"),
+            ("CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE", "5"),
+            (
+                "CARDANO_TRANSACTIONS_SIGNING_CONFIG__SECURITY_PARAMETER",
+                "1",
+            ),
+            ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
         ]);
         let args = vec![
             "--db-directory",

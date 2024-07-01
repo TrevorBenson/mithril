@@ -1,17 +1,17 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use config::{ConfigError, Map, Source, Value, ValueKind};
 use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use mithril_common::entities::{
-    CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters, SignedEntityType,
-    SignedEntityTypeDiscriminants, TimePoint,
+    CardanoTransactionsSigningConfig, CompressionAlgorithm, HexEncodedGenesisVerificationKey,
+    ProtocolParameters, SignedEntityConfig, SignedEntityTypeDiscriminants,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -130,7 +130,11 @@ pub struct Configuration {
     /// Era reader adapter parameters
     pub era_reader_adapter_params: Option<String>,
 
-    /// Signed entity types parameters (discriminants names in an ordered comma separated list).    
+    /// Signed entity types parameters (discriminants names in an ordered, case-sensitive, comma
+    /// separated list).
+    ///
+    /// The values `MithrilStakeDistribution` and `CardanoImmutableFilesFull` are prepended
+    /// automatically to the list.
     #[example = "`MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution`"]
     pub signed_entity_types: Option<String>,
 
@@ -153,6 +157,22 @@ pub struct Configuration {
     ///
     /// Will be ignored on (pre)production networks.
     pub allow_unparsable_block: bool,
+
+    /// Cardano transactions prover cache pool size
+    pub cardano_transactions_prover_cache_pool_size: usize,
+
+    /// Cardano transactions database connection pool size
+    pub cardano_transactions_database_connection_pool_size: usize,
+
+    /// Cardano transactions signing configuration
+    #[example = "`{ security_parameter: 3000, step: 120 }`"]
+    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+
+    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
+    pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
+
+    /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
+    pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: usize,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -225,6 +245,14 @@ impl Configuration {
             cexplorer_pools_url: None,
             signer_importer_run_interval: 1,
             allow_unparsable_block: false,
+            cardano_transactions_prover_cache_pool_size: 3,
+            cardano_transactions_database_connection_pool_size: 5,
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: 100,
+                step: 15,
+            },
+            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
         }
     }
 
@@ -260,54 +288,25 @@ impl Configuration {
             .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
 
-    /// Create the deduplicated list of allowed signed entity types discriminants.
-    ///
-    /// By default, the list contains the MithrilStakeDistribution and the CardanoImmutableFilesFull.
-    /// The list can be extended with the configuration parameter `signed_entity_types`.
-    /// The signed entity types are defined in the [SignedEntityTypeDiscriminants] enum.
-    /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
-    pub fn list_allowed_signed_entity_types_discriminants(
-        &self,
-    ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
-        let default_discriminants = BTreeSet::from([
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-        ]);
+    /// Compute a [SignedEntityConfig] based on this configuration.
+    pub fn compute_signed_entity_config(&self) -> StdResult<SignedEntityConfig> {
+        let network = self.get_network()?;
+        let allowed_discriminants = self
+            .signed_entity_types
+            .as_ref()
+            .map(SignedEntityTypeDiscriminants::parse_list)
+            .transpose()
+            .with_context(|| "Invalid 'signed_entity_types' configuration")?
+            .unwrap_or_default();
 
-        let mut all_discriminants = default_discriminants;
-
-        let discriminant_names = self.signed_entity_types.clone().unwrap_or_default();
-        for discriminant in discriminant_names
-            .split(',')
-            .filter_map(|name| SignedEntityTypeDiscriminants::from_str(name.trim()).ok())
-        {
-            all_discriminants.insert(discriminant);
-        }
-
-        Ok(all_discriminants)
-    }
-
-    /// Create the deduplicated list of allowed signed entity types.
-    ///
-    /// By default, the list contains the MithrilStakeDistribution and the CardanoImmutableFilesFull.
-    /// The list can be extended with the configuration parameter `signed_entity_types`.
-    /// The signed entity types are defined in the [SignedEntityTypeDiscriminants] enum.
-    /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
-    pub fn list_allowed_signed_entity_types(
-        &self,
-        time_point: &TimePoint,
-    ) -> StdResult<Vec<SignedEntityType>> {
-        let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants()?;
-        let signed_entity_types = allowed_discriminants
-            .into_iter()
-            .map(|discriminant| {
-                SignedEntityType::from_time_point(&discriminant, &self.network, time_point)
-            })
-            .collect();
-
-        Ok(signed_entity_types)
+        Ok(SignedEntityConfig {
+            allowed_discriminants,
+            network,
+            cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
+        })
     }
 }
+
 /// Default configuration with all the default values for configurations.
 #[derive(Debug, Clone, DocumenterDefault)]
 pub struct DefaultConfiguration {
@@ -358,6 +357,21 @@ pub struct DefaultConfiguration {
     ///
     /// Will be ignored on (pre)production networks.
     pub allow_unparsable_block: String,
+
+    /// Cardano transactions prover cache pool size
+    pub cardano_transactions_prover_cache_pool_size: u32,
+
+    /// Cardano transactions database connection pool size
+    pub cardano_transactions_database_connection_pool_size: u32,
+
+    /// Cardano transactions signing configuration
+    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+
+    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
+    pub cardano_transactions_prover_max_hashes_allowed_by_request: u32,
+
+    /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
+    pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: u32,
 }
 
 impl Default for DefaultConfiguration {
@@ -378,7 +392,21 @@ impl Default for DefaultConfiguration {
             snapshot_use_cdn_domain: "false".to_string(),
             signer_importer_run_interval: 720,
             allow_unparsable_block: "false".to_string(),
+            cardano_transactions_prover_cache_pool_size: 10,
+            cardano_transactions_database_connection_pool_size: 10,
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: 3000,
+                step: 120,
+            },
+            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
         }
+    }
+}
+
+impl DefaultConfiguration {
+    fn namespace() -> String {
+        "default configuration".to_string()
     }
 }
 
@@ -396,92 +424,65 @@ impl Source for DefaultConfiguration {
         Box::new(self.clone())
     }
 
-    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+    fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        macro_rules! insert_default_configuration {
+            ( $map:ident, $config:ident.$parameter:ident ) => {{
+                $map.insert(
+                    stringify!($parameter).to_string(),
+                    into_value($config.$parameter),
+                );
+            }};
+        }
+
+        fn into_value<V: Into<ValueKind>>(value: V) -> Value {
+            Value::new(Some(&DefaultConfiguration::namespace()), value.into())
+        }
         let mut result = Map::new();
-        let namespace = "default configuration".to_string();
         let myself = self.clone();
-        result.insert(
-            "environment".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.environment)),
+
+        insert_default_configuration!(result, myself.environment);
+        insert_default_configuration!(result, myself.server_ip);
+        insert_default_configuration!(result, myself.server_port);
+        insert_default_configuration!(result, myself.db_directory);
+        insert_default_configuration!(result, myself.snapshot_directory);
+        insert_default_configuration!(result, myself.snapshot_store_type);
+        insert_default_configuration!(result, myself.snapshot_uploader_type);
+        insert_default_configuration!(result, myself.era_reader_adapter_type);
+        insert_default_configuration!(result, myself.reset_digests_cache);
+        insert_default_configuration!(result, myself.disable_digests_cache);
+        insert_default_configuration!(result, myself.snapshot_compression_algorithm);
+        insert_default_configuration!(result, myself.snapshot_use_cdn_domain);
+        insert_default_configuration!(result, myself.signer_importer_run_interval);
+        insert_default_configuration!(result, myself.allow_unparsable_block);
+        insert_default_configuration!(result, myself.cardano_transactions_prover_cache_pool_size);
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_database_connection_pool_size
+        );
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_prover_max_hashes_allowed_by_request
+        );
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
         result.insert(
-            "server_ip".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.server_ip)),
-        );
-        result.insert(
-            "server_port".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.server_port)),
-        );
-        result.insert(
-            "db_directory".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.db_directory)),
-        );
-        result.insert(
-            "snapshot_directory".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.snapshot_directory)),
-        );
-        result.insert(
-            "snapshot_store_type".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.snapshot_store_type),
-            ),
-        );
-        result.insert(
-            "snapshot_uploader_type".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.snapshot_uploader_type),
-            ),
-        );
-        result.insert(
-            "era_reader_adapter_type".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.era_reader_adapter_type),
-            ),
-        );
-        result.insert(
-            "reset_digests_cache".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.reset_digests_cache),
-            ),
-        );
-        result.insert(
-            "disable_digests_cache".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.disable_digests_cache),
-            ),
-        );
-        result.insert(
-            "snapshot_compression_algorithm".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.snapshot_compression_algorithm),
-            ),
-        );
-        result.insert(
-            "snapshot_use_cdn_domain".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.snapshot_use_cdn_domain),
-            ),
-        );
-        result.insert(
-            "signer_importer_run_interval".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.signer_importer_run_interval),
-            ),
-        );
-        result.insert(
-            "allow_unparsable_block".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.allow_unparsable_block),
-            ),
+            "cardano_transactions_signing_config".to_string(),
+            into_value(HashMap::from([
+                (
+                    "security_parameter".to_string(),
+                    ValueKind::from(
+                        myself
+                            .cardano_transactions_signing_config
+                            .security_parameter,
+                    ),
+                ),
+                (
+                    "step".to_string(),
+                    ValueKind::from(myself.cardano_transactions_signing_config.step),
+                ),
+            ])),
         );
 
         Ok(result)
@@ -490,8 +491,6 @@ impl Source for DefaultConfiguration {
 
 #[cfg(test)]
 mod test {
-    use mithril_common::test_utils::fake_data;
-
     use super::*;
 
     #[test]
@@ -526,141 +525,18 @@ mod test {
     }
 
     #[test]
-    fn test_list_allowed_signed_entity_types_discriminant_without_specific_configuration() {
-        let config = Configuration {
-            signed_entity_types: None,
-            ..Configuration::new_sample()
-        };
+    fn can_build_config_with_ctx_signing_config_from_default_configuration() {
+        #[derive(Debug, Deserialize)]
+        struct TargetConfig {
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+        }
 
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
-
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ]),
-            discriminants
-        );
-    }
-
-    #[test]
-    fn test_list_allowed_signed_entity_types_discriminant_should_not_return_unknown_signed_entity_types_in_configuration(
-    ) {
-        let config = Configuration {
-            signed_entity_types: Some("Unknown".to_string()),
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
+        let config_builder = config::Config::builder().add_source(DefaultConfiguration::default());
+        let target: TargetConfig = config_builder.build().unwrap().try_deserialize().unwrap();
 
         assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ]),
-            discriminants
-        );
-    }
-
-    #[test]
-    fn test_list_allowed_signed_entity_types_discriminant_should_not_duplicate_a_signed_entity_discriminant_type_already_in_default_ones(
-    ) {
-        let config = Configuration {
-            signed_entity_types: Some(
-                "CardanoImmutableFilesFull, MithrilStakeDistribution, CardanoImmutableFilesFull"
-                    .to_string(),
-            ),
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
-
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ]),
-            discriminants
-        );
-    }
-
-    #[test]
-    fn test_list_allowed_signed_entity_types_discriminants_should_add_signed_entity_types_in_configuration_at_the_end(
-    ) {
-        let config = Configuration {
-            signed_entity_types: Some("CardanoStakeDistribution, CardanoTransactions".to_string()),
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
-
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-            ]),
-            discriminants
-        );
-    }
-
-    #[test]
-    fn test_list_allowed_signed_entity_types_discriminants_with_multiple_identical_signed_entity_types_in_configuration_should_not_be_added_several_times(
-    ) {
-        let config = Configuration {
-            signed_entity_types: Some(
-                "CardanoStakeDistribution, CardanoStakeDistribution, CardanoStakeDistribution"
-                    .to_string(),
-            ),
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
-
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ]),
-            discriminants
-        );
-    }
-
-    #[test]
-    fn test_list_allowed_signed_entity_types_with_specific_configuration() {
-        let beacon = fake_data::beacon();
-        let time_point = TimePoint::new(*beacon.epoch, beacon.immutable_file_number);
-
-        let config = Configuration {
-            network: beacon.network.clone(),
-            signed_entity_types: Some("CardanoStakeDistribution, CardanoTransactions".to_string()),
-            ..Configuration::new_sample()
-        };
-
-        let signed_entity_types = config
-            .list_allowed_signed_entity_types(&time_point)
-            .unwrap();
-
-        assert_eq!(
-            vec![
-                SignedEntityType::MithrilStakeDistribution(beacon.epoch),
-                SignedEntityType::CardanoStakeDistribution(beacon.epoch),
-                SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
-                SignedEntityType::CardanoTransactions(beacon.clone()),
-            ],
-            signed_entity_types
+            target.cardano_transactions_signing_config,
+            DefaultConfiguration::default().cardano_transactions_signing_config
         );
     }
 }

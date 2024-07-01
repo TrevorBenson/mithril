@@ -39,6 +39,8 @@ Mithril signer is responsible for producing individual signatures that are colle
 
 * Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
 
+* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+
 * Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
 ## Download the source file
@@ -162,6 +164,11 @@ Options:
           [env: METRICS_SERVER_PORT=]
           [default: 9090]
 
+      --allow-unparsable-block
+          If set no error is returned in case of unparsable block and an error log is written instead.
+          
+          Will be ignored on (pre)production networks.
+
   -h, --help
           Print help (see a summary with '-h')
 
@@ -246,3 +253,4 @@ Here is a list of the available parameters:
 | `enable_metrics_server` | `--enable-metrics-server` | - | `ENABLE_METRICS_SERVER` | Enable metrics HTTP server (Prometheus endpoint on /metrics) | `false` | - | - |
 | `metrics_server_ip` | `--metrics-server-ip` | - | `METRICS_SERVER_IP` | Metrics HTTP server IP | `0.0.0.0` | - | - |
 | `metrics_server_port` | `--metrics-server-port` | - | `METRICS_SERVER_PORT` | Metrics HTTP server listening port | `9090` | - | - |
+| `allow_unparsable_block` | `--allow-unparsable-block` | - | `ALLOW_UNPARSABLE_BLOCK` | If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks. | `false` | - | - |

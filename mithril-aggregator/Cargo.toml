@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.5.5"
+version = "0.5.31"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -11,6 +11,10 @@ repository = { workspace = true }
 
 [[bench]]
 name = "cardano_transactions_import"
+harness = false
+
+[[bench]]
+name = "cardano_transactions_get"
 harness = false
 
 [dependencies]
@@ -27,6 +31,7 @@ mithril-doc = { path = "../internal/mithril-doc" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
 openssl = { version = "0.10.63", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
+rayon = "1.10.0"
 reqwest = { version = "0.12.0", features = ["json"] }
 semver = "1.0.21"
 serde = { version = "1.0.196", features = ["derive"] }

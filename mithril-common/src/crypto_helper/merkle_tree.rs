@@ -1,16 +1,14 @@
-use anyhow::anyhow;
-#[cfg(any(test, feature = "test_tools"))]
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use blake2::{Blake2s256, Digest};
 use ckb_merkle_mountain_range::{
-    util::MemStore, MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult, MMR,
+    MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult, MMR,
 };
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Display,
     ops::{Add, Deref},
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 
 use crate::{StdError, StdResult};
@@ -149,13 +147,17 @@ impl MKProof {
     pub fn contains(&self, leaves: &[MKTreeNode]) -> StdResult<()> {
         leaves
             .iter()
-            .all(|leaf| {
-                self.inner_leaves
-                    .iter()
-                    .any(|(_, l)| ((**l).clone()) == *leaf)
-            })
+            .all(|leaf| self.inner_leaves.iter().any(|(_, l)| l.deref() == leaf))
             .then_some(())
             .ok_or(anyhow!("Leaves not found in the MKProof"))
+    }
+
+    /// List the leaves of the proof
+    pub fn leaves(&self) -> Vec<MKTreeNode> {
+        self.inner_leaves
+            .iter()
+            .map(|(_, l)| (**l).clone())
+            .collect::<Vec<_>>()
     }
 
     cfg_test_tools! {
@@ -194,28 +196,33 @@ impl From<MKProof> for MKTreeNode {
 
 /// A Merkle tree store
 pub struct MKTreeStore<T> {
-    inner_store: MemStore<T>,
+    inner_store: RwLock<HashMap<u64, T>>,
 }
 
 impl<T> MKTreeStore<T> {
     fn new() -> Self {
         Self {
-            inner_store: MemStore::<T>::default(),
+            inner_store: RwLock::new(HashMap::new()),
         }
     }
 }
 
 impl<T: Clone> MMRStoreReadOps<T> for MKTreeStore<T> {
     fn get_elem(&self, pos: u64) -> MMRResult<Option<T>> {
-        let inner_store = &self.inner_store;
-        inner_store.get_elem(pos)
+        let inner_store = self.inner_store.read().unwrap();
+
+        Ok((*inner_store).get(&pos).cloned())
     }
 }
 
 impl<T> MMRStoreWriteOps<T> for MKTreeStore<T> {
     fn append(&mut self, pos: u64, elems: Vec<T>) -> MMRResult<()> {
-        let mut inner_store = &self.inner_store;
-        inner_store.append(pos, elems)
+        let mut inner_store = self.inner_store.write().unwrap();
+        for (i, elem) in elems.into_iter().enumerate() {
+            (*inner_store).insert(pos + i as u64, elem);
+        }
+
+        Ok(())
     }
 }
 
@@ -284,7 +291,11 @@ impl MKTree {
 
     /// Generate root of the Merkle tree
     pub fn compute_root(&self) -> StdResult<MKTreeNode> {
-        Ok((*self.inner_tree.get_root()?).clone())
+        Ok((*self
+            .inner_tree
+            .get_root()
+            .with_context(|| "Could not compute Merkle Tree root")?)
+        .clone())
     }
 
     /// Generate Merkle proof of memberships in the tree
@@ -438,5 +449,15 @@ mod tests {
                 leaves_not_verified[0].to_owned(),
             ])
             .unwrap_err();
+    }
+
+    #[test]
+    fn list_leaves() {
+        let leaves_to_verify = generate_leaves(10);
+        let proof =
+            MKProof::from_leaves(&leaves_to_verify).expect("MKProof generation should not fail");
+
+        let proof_leaves = proof.leaves();
+        assert_eq!(proof_leaves, leaves_to_verify);
     }
 }
